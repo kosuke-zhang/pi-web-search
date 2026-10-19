@@ -103,5 +103,9 @@ test('model-scoped tool manager removes url_context for non-Gemini and restores 
 
   manager.sync({ id: 'gemini-test', provider: 'proxy-provider', api: 'google-generative-ai' });
   assert.deepEqual(activeTools, ['read', 'web_search', 'url_context']);
+
+  // DeepSeek fetches URLs through its own tools/fetch endpoint.
+  manager.sync({ id: 'deepseek-test', provider: 'deepseek', api: 'openai-completions' });
+  assert.deepEqual(activeTools, ['read', 'web_search', 'url_context']);
   assert.equal(changes.length >= 2, true);
 });

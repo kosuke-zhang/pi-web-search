@@ -1,7 +1,6 @@
 import type { ExtensionContext, AgentToolUpdateCallback } from "@earendil-works/pi-coding-agent";
 import type { Api, Model } from "@earendil-works/pi-ai";
 import { getAuth, getProviderSessionHeaders } from "./auth.ts";
-import { getProviderKind } from "./config.ts";
 import { readSseEvents } from "./sse.ts";
 import {
     applyTextCitations,
@@ -22,13 +21,9 @@ function resolveAnthropicMessagesUrl(baseUrl: string): string {
     return base.endsWith("/v1") ? `${base}/messages` : `${base}/v1/messages`;
 }
 
-// DeepSeek exposes server-side search only on its Anthropic-compatible route.
-// Preserve a configured proxy origin/path instead of sending its credentials elsewhere.
-export function resolveDeepSeekBaseUrl(baseUrl: string): string {
-    const base = baseUrl.replace(/\/+$/, "");
-    if (/\/anthropic(?:\/v1)?$/.test(base)) return base;
-    return `${base.replace(/\/v1$/, "")}/anthropic`;
-}
+// Provider identity for `source` tags and `providerKind`. Widening this union is
+// how another Messages-protocol provider joins without inheriting "anthropic".
+type MessagesProviderKind = "anthropic";
 
 export async function callAnthropicStream(
     ctx: ExtensionContext,
@@ -37,15 +32,14 @@ export async function callAnthropicStream(
     onUpdate?: AgentToolUpdateCallback,
     signal?: AbortSignal
 ): Promise<StreamResult> {
-    const kind = getProviderKind(model) === "deepseek" ? "deepseek" : "anthropic";
-    const isDeepSeek = kind === "deepseek";
-    const providerName = isDeepSeek ? "DeepSeek" : "Anthropic";
+    const kind: MessagesProviderKind = "anthropic";
+    const providerName = "Anthropic";
     const auth = await getAuth(ctx, model);
     if (!auth.ok) {
         throw new Error(auth.error || "Failed to get API key and headers");
     }
 
-    const isOAuth = !isDeepSeek && !!auth.apiKey && auth.apiKey.includes("sk-ant-oat");
+    const isOAuth = !!auth.apiKey && auth.apiKey.includes("sk-ant-oat");
     const headers: Record<string, string> = {
         "Content-Type": "application/json",
         "Accept": "text/event-stream",
@@ -69,11 +63,6 @@ export async function callAnthropicStream(
         }
     }
 
-    if (isDeepSeek && !Object.entries(headers).some(([name, value]) =>
-        value && ["authorization", "x-api-key"].includes(name.toLowerCase()))) {
-        throw new Error("No DeepSeek API key found. Run /login in pi and select DeepSeek, or set DEEPSEEK_API_KEY.");
-    }
-
     const maxTokens = Math.min(Math.max(1024, Math.floor(model.maxTokens / 3) || 4096), 8192);
     const requestBody = {
         model: model.id,
@@ -92,7 +81,7 @@ export async function callAnthropicStream(
         stream: true,
     };
 
-    const response = await fetch(resolveAnthropicMessagesUrl(isDeepSeek ? resolveDeepSeekBaseUrl(auth.baseUrl || model.baseUrl) : model.baseUrl), {
+    const response = await fetch(resolveAnthropicMessagesUrl(auth.baseUrl || model.baseUrl), {
         method: "POST",
         headers,
         body: JSON.stringify(requestBody),
@@ -151,7 +140,6 @@ export async function callAnthropicStream(
                 if (Array.isArray(block.content)) {
                     for (const result of block.content) collectSource(result, block.tool_use_id);
                 } else if (block.content?.type === "web_search_tool_result_error") {
-                    if (isDeepSeek) throw new Error(`DeepSeek web search failed: ${block.content.error_code || "unknown error"}`);
                     pushUniqueSearchResult(searchResults, {
                         status: block.content.error_code,
                         source: `${kind}.web_search_tool_result_error`,

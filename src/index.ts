@@ -11,9 +11,9 @@ const URL_CONTEXT_TOOL = "url_context";
 function supportsUrlContext(model: Model<Api> | undefined) {
     if (!model) return false;
     const kind = getProviderKind(model);
-    // Ollama serves URL retrieval through its web_fetch endpoint instead of
-    // Gemini URL Context; the tool dispatch handles both.
-    return kind === "google" || kind === "ollama";
+    // Ollama and DeepSeek serve URL retrieval through their fetch endpoints
+    // instead of Gemini URL Context; the tool dispatch handles all three.
+    return kind === "google" || kind === "ollama" || kind === "deepseek";
 }
 
 function setEquals<T>(a: Set<T>, b: Set<T>) {
@@ -97,7 +97,7 @@ export default function (pi: ExtensionAPI) {
     pi.registerTool({
         name: URL_CONTEXT_TOOL,
         label: "URL Context",
-        description: "Analyze the content of up to 20 public URLs using provider-native URL retrieval (Gemini URL Context or Ollama web fetch). Supports web pages and documents; images and YouTube videos need Gemini.",
+        description: "Analyze the content of up to 20 public URLs using provider-native URL retrieval (Gemini URL Context, Ollama web fetch, or DeepSeek fetch). Supports web pages and documents; images and YouTube videos need Gemini.",
         parameters: UrlContextSchema,
         execute: urlContext
     });

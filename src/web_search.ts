@@ -42,10 +42,10 @@ export async function webSearch(
     try {
         const config = getConfig(model);
 
-        // Build prompt: include URLs if provided. Ollama receives the URL list as
-        // a separate argument (its search is a REST endpoint, not a model tool),
-        // so the prompt stays a clean query.
-        const prompt = hasUrls && config.kind !== "ollama"
+        // Build prompt: include URLs if provided. Ollama and DeepSeek receive
+        // the URL list as a separate argument (their search is a REST endpoint,
+        // not a model tool), so the prompt stays a clean query.
+        const prompt = hasUrls && config.kind !== "ollama" && config.kind !== "deepseek"
             ? `${params.query}\n\nAlso analyze these URLs:\n${params.urls!.join("\n")}`
             : params.query;
 

@@ -17,7 +17,7 @@ Search the web using your currently selected model. Automatically picks the righ
 | OpenAI Codex | Codex Responses API web search (`openai-codex-responses`) |
 | GitHub Copilot | OpenAI Responses API web search via Copilot credentials |
 | Anthropic | Messages API web search |
-| DeepSeek | Anthropic-compatible Messages API `web_search_20260209` |
+| DeepSeek | Search & Fetch API (`/v1/tools/search`, `/v1/tools/fetch`) |
 | Ollama Cloud | Ollama web search API (`/api/web_search`, standalone REST) |
 | OpenCode Zen / Go | Responses API web search (models that use the `openai-responses` API) |
 
@@ -33,7 +33,7 @@ Supports passing up to 20 additional URLs to analyze alongside the query. Succes
 
 ### `url_context`
 
-Gemini and Ollama Cloud. Analyze up to 20 public URLs — web pages, documents, images, and YouTube videos. Gemini uses native URL Context retrieval with verified metadata; Ollama uses its `web_fetch` endpoint (web pages and documents only).
+Gemini, Ollama Cloud, and DeepSeek. Analyze up to 20 public URLs — web pages, documents, images, and YouTube videos. Gemini uses native URL Context retrieval with verified metadata; Ollama uses its `web_fetch` endpoint and DeepSeek its `fetch` endpoint (web pages and documents only).
 
 When using `google-generative-ai`, YouTube URLs are passed as `file_data` for native video understanding.
 
@@ -62,15 +62,21 @@ For OpenAI Responses models (including Azure, Codex, and Copilot), `web_search` 
 
 When thinking is off or unavailable, or the search model is non-reasoning, the request omits `reasoning` and leaves the choice to the provider. Off does not force reasoning off: some models reject `reasoning.effort: "none"`. Google, Anthropic, xAI, and Ollama behavior is unchanged.
 
-`url_context` is automatically removed from active tools when using a model that supports neither Gemini URL Context nor Ollama web fetch.
+`url_context` is automatically removed from active tools when using a model that supports neither Gemini URL Context nor the Ollama/DeepSeek fetch endpoints.
 
 ### DeepSeek
 
 Select a model from pi's `deepseek` provider and authenticate with `/login` or
-`DEEPSEEK_API_KEY`. Search automatically uses DeepSeek's Anthropic-compatible
-endpoint (`https://api.deepseek.com/anthropic/v1/messages`) with the same model
-and credentials. A configured proxy base URL is preserved and routed through
-its `/anthropic/v1/messages` endpoint; the proxy must support that route.
+`DEEPSEEK_API_KEY`. Search uses DeepSeek's Search & Fetch API
+(`POST https://api.deepseek.com/v1/tools/search`) with the same credentials, so
+no model completion is involved: the ranked results DeepSeek returns are
+formatted straight into the tool output. Any `urls` are retrieved through the
+matching `POST /v1/tools/fetch` endpoint, which also backs `url_context` for
+DeepSeek models.
+
+A configured proxy base URL is preserved and only its API suffix (`/v1`,
+`/anthropic`, …) is stripped, so the `/v1/tools/*` routes stay on the same
+origin as your model traffic.
 
 To use DeepSeek search with another conversation model, set `web-search.json`:
 
@@ -81,14 +87,15 @@ To use DeepSeek search with another conversation model, set `web-search.json`:
 }
 ```
 
-The selected model must be registered in pi and support DeepSeek's server-side
-search. Unlike the standalone `pi-deepseek-search` extension, this integration
-uses the model selected by this project's configuration; it does not read
+The selected model must be registered in pi; it supplies the credentials and
+base URL, and its `id` is not sent to the Search API. Unlike the standalone
+`pi-deepseek-search` extension, this integration does not read
 `DEEPSEEK_SEARCH_MODEL` or silently switch models. Do not load both extensions,
 since they both register `web_search`.
 
-DeepSeek requests support cancellation through pi. Additional `urls` are included in
-the prompt; Gemini's verified URL Context retrieval remains Gemini-only.
+DeepSeek requests support cancellation through pi. Only DeepSeek's own
+`fetch` retrieval feeds `url_context`; Gemini's verified URL Context retrieval
+remains Gemini-only.
 
 This integration was informed by [pi-deepseek-search](https://github.com/bxff/pi-deepseek-search).
 

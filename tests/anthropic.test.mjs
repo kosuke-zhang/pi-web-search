@@ -148,3 +148,24 @@ test('Anthropic stream omits the system prompt for API key credentials', async (
 
   assert.equal(result.text, 'API key accepted');
 });
+
+test('Anthropic stream honours a registry-provided base URL override', async (t) => {
+  let requestedUrl;
+  t.mock.method(globalThis, 'fetch', async (url) => {
+    requestedUrl = url;
+    return makeResponse([
+      { data: { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'ok' } } },
+    ]);
+  });
+
+  await callApiStream(mockCtx('sk-ant-api03-test', undefined, undefined, 'https://proxy.test/anthropic'), {
+    id: 'claude-test',
+    provider: 'anthropic',
+    api: 'anthropic-messages',
+    baseUrl: 'https://example.test/anthropic',
+    maxTokens: 4096,
+    headers: {},
+  }, { contents: [{ parts: [{ text: 'Search' }] }] });
+
+  assert.equal(requestedUrl, 'https://proxy.test/anthropic/v1/messages');
+});
