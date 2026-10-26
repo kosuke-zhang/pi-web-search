@@ -85,7 +85,7 @@ async function fetchPages(
             const data = await request<DeepSeekFetchResult>("fetch", { url }, signal);
             signal?.throwIfAborted();
             const content = truncateContent(data.content);
-            if (!content) throw new Error("DeepSeek fetch returned no extractable content");
+            if (!content) throw new Error("Page fetch returned no extractable content");
             pages.push({ url, title: data.title || undefined, content, ok: true });
         } catch (error) {
             signal?.throwIfAborted();
@@ -110,7 +110,7 @@ export async function searchDeepSeek(
 ): Promise<StreamResult> {
 
     onUpdate?.({
-        content: [{ type: "text", text: `Searching the web with DeepSeek...` }],
+        content: [{ type: "text", text: `Searching the web...` }],
         details: { streaming: true, searching: true },
     });
 
@@ -141,14 +141,14 @@ export async function searchDeepSeek(
         url: hit.url!,
     }));
 
-    const lines = [`Search results for "${query}" via DeepSeek:`];
+    const lines = [`Search results for "${query}":`];
     if (hits.length === 0) lines.push("No results found.");
     hits.forEach((hit, i) => lines.push("", formatHit(hit, i)));
 
     let urlContextMetadata;
     if (urls?.length) {
         onUpdate?.({
-            content: [{ type: "text", text: `Fetching ${urls.length} URL(s) with DeepSeek...` }],
+            content: [{ type: "text", text: `Fetching ${urls.length} URL(s)...` }],
             details: { streaming: true },
         });
         const pages = await fetchPages(request, urls, signal, reportFetchErrors);

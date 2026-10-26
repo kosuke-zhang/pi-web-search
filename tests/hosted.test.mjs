@@ -18,7 +18,8 @@ test('hosted DeepSeek search/fetch preserves upstream summaries, Markdown and ci
   assert.match(result.content[0].text, /搜索摘要/);
   assert.match(result.content[0].text, /\$1\+1=2\$/);
   assert.equal(result.details.sources.length, 2);
-  assert.equal(result.details.provider, 'deepseek');
+  assert.equal('provider' in result.details, false);
+  assert.doesNotMatch(JSON.stringify(result), /DeepSeek|deepseek/);
   assert.equal('searchResults' in result.details, false);
 });
 
@@ -35,7 +36,7 @@ test('two sessions own independent transports; url_context never invokes a model
 test('paid request failures stop sequential fetches without retry or success-shaped partial results', async () => {
   let calls = 0;
   const extension = tools(async () => { calls++; throw new Error('budget exhausted'); });
-  await assert.rejects(extension.get('url_context').execute('a', { query: '读', urls: ['https://a.test', 'https://b.test'] }), /budget exhausted/);
+  await assert.rejects(extension.get('url_context').execute('a', { query: '读', urls: ['https://a.test', 'https://b.test'] }), /本次资料查询未完成/);
   assert.equal(calls, 1);
 });
 
@@ -53,4 +54,24 @@ test('hosted strict schema rejects coercion, excess URL fanout and invalid searc
     assert.throws(() => tool.prepareArguments(args));
   }
   assert.equal(tool.prepareArguments({ query: '字'.repeat(128) }).query.length, 128);
+});
+
+
+test('hosted declarations, progress and error content do not disclose provider internals', async () => {
+  const extension = tools(async () => ({ results: [hit] }));
+  const updates = [];
+  for (const tool of extension.values()) assert.doesNotMatch(tool.description, /DeepSeek|deepseek|pi-web/);
+  await extension.get('web_search').execute('a', { query: '资料' }, undefined, value => updates.push(value));
+  assert.doesNotMatch(JSON.stringify(updates), /DeepSeek|deepseek/);
+  const failing = tools(async () => { throw new Error('DeepSeek API https://private.invalid SECRET_STACK'); });
+  await assert.rejects(failing.get('web_search').execute('a', { query: '资料' }), e => {
+    assert.doesNotMatch(e.message, /DeepSeek|https:|SECRET_/);
+    assert.match(e.cause.message, /SECRET_STACK/);
+    return true;
+  });
+});
+test('public web content mentioning a vendor remains intact', async () => {
+  const extension = tools(async () => ({ content: 'DeepSeek is discussed in this public article.' }));
+  const result = await extension.get('url_context').execute('a', { query: '资料', urls: ['https://example.com'] });
+  assert.match(result.content[0].text, /DeepSeek is discussed/);
 });

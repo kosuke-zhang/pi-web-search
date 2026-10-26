@@ -111,7 +111,7 @@ test('DeepSeek search calls the tools/search endpoint and formats results', asyn
   assert.equal(result.searchResults[0].status, undefined);
   assert.equal(result.searchResults[0].raw.rerank_score, 2.4);
   assert.deepEqual(result.nativeSearchEvents, undefined, 'no stream events exist on the REST path');
-  assert.match(result.text, /Search results for "Search DeepSeek docs" via DeepSeek/);
+  assert.match(result.text, /Search results for "Search DeepSeek docs":/);
   assert.match(result.text, /## 1\. DeepSeek docs/);
   assert.match(result.text, /^# DeepSeek V4 is out\.$/m, 'summary heading preserved');
   // A real summary is plain page text: its backslashes survive verbatim, and a
